@@ -439,6 +439,28 @@ body{background:radial-gradient(900px 520px at 50% -180px,rgba(209,254,23,.07),t
 .btn.bad:hover{color:#ffd0ca}
 .dbox .err{font-size:13.5px}
 @media(prefers-reduced-motion:reduce){.help,.dlg,.dbox{animation:none}}
+.pvwrap{display:grid;gap:12px;justify-items:center;width:100%}
+.pvwrap p{margin:0;text-align:center}
+/* Handy und Computer arbeiten zusammen: wartende Personen, Hinweise zur Bearbeitung, Bearbeiten auf schmalen Bildschirmen */
+.pwait{padding:4px 0 4px 12px;gap:8px}
+.pw{flex:1;min-width:0;display:grid;gap:1px}
+.pw b{font-size:14.5px;font-weight:500;color:#e4e4e8}
+.pw small{font-size:12.5px;color:#b9b9bf;white-space:normal;line-height:1.35;max-width:230px}
+.pnote{padding:8px 12px 4px;max-width:270px;white-space:normal}
+.ednote{margin:12px 0 0;padding:10px 13px;border-radius:11px;background:rgba(217,180,95,.10);border:1px solid rgba(217,180,95,.3);color:#f0cf85;font-size:13.5px;line-height:1.45}
+.ednote.bad{color:#ffb3ab;border-color:rgba(255,120,110,.35);background:rgba(255,120,110,.08)}
+.edstill{margin:0;text-align:center}
+.vwait .btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 26px;margin-top:6px;text-decoration:none}
+.media a.btn{text-decoration:none;display:inline-flex;align-items:center}
+@media(max-width:900px){
+  .view:not(.editing){grid-template-rows:auto auto}
+  .view:not(.editing) .vstage{height:auto;min-height:230px}
+  .view:not(.editing) .vside>*{flex-shrink:0}
+  .view.editing{grid-template-rows:44vh minmax(0,1fr);overflow:hidden}
+  .view.editing .vstage{padding:56px 12px 8px;height:100%}
+  .view.editing .vside{height:100%;min-height:0;overflow-y:auto;padding:16px 18px 30px}
+  .view.editing .edrow input{min-height:36px}
+}
 </style>
 </head>
 <body data-tab="gallery">
@@ -497,7 +519,8 @@ const SRV = "Higgsfield";
 const KEY = "higgsi.community.v1";
 let PLATFORM = "";
 const onWin = () => PLATFORM ? PLATFORM === "win32" : /Windows/i.test(navigator.userAgent || "");
-const mac = t => typeof t !== "string" || !onWin() ? t : t.replace(/deinem Mac/g, "deinem Computer").replace(/deinen Mac/g, "deinen Computer").replace(/den Mac\b/g, "den Computer")
+let NODESK = false; /* Handy oder Browser: dort gibt es keinen Zugriff auf den Computer */
+const mac = t => typeof t !== "string" || !(onWin() || NODESK) ? t : t.replace(/deinem Mac/g, "deinem Computer").replace(/deinen Mac/g, "deinen Computer").replace(/den Mac\b/g, "den Computer")
   .replace(/dem Mac\b/g, "dem Computer").replace(/vom Mac\b/g, "vom Computer").replace(/ im Finder zeigen/g, " im Ordner zeigen").replace(/^Im Finder zeigen$/, "Im Ordner zeigen").replace(/Finder ließ/g, "Der Ordner ließ");
 /* Pfade intern immer mit /, für Windows-Programme mit \ */
 const fwd = x => String(x).replace(/\\/g, "/");
@@ -523,7 +546,9 @@ const MODELS = [
   { id: "seedance_2_5", kind: "video", name: "Seedance 2.5", ar: ["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"], dur: [4, 30, 5], opts: { resolution: ["480p", "720p", "1080p", "4k"] }, audio: true, base: "t2v",
     ref: { start: { mode: "omni_reference", role: "start_image" }, ref: { mode: "omni_reference", role: "image_references" } } },
   { id: "kling4_0", kind: "video", name: "Kling 4.0", ar: ["9:16", "16:9", "1:1", "21:9"], dur: [3, 30, 5], opts: { resolution: ["1080p", "720p", "4k"] }, base: "text-to-video", ref: VMODE },
-  { id: "gemini_omni_flash_1_2", kind: "video", name: "Gemini Omni Flash 1.2", ar: ["9:16", "16:9"], dur: [3, 15, 8], opts: { resolution: ["720p", "1080p", "360p", "4k"] }, base: "text-to-video", ref: VMODE }
+  { id: "gemini_omni_flash_1_2", kind: "video", name: "Gemini Omni Flash 1.2", ar: ["9:16", "16:9"], dur: [3, 15, 8], opts: { resolution: ["720p", "1080p", "360p", "4k"] }, base: "text-to-video", ref: VMODE },
+  { id: "minimax_h3", kind: "video", name: "MiniMax H3", ar: ["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"], dur: [4, 15, 5], opts: { resolution: ["2K"] }, ref: { start: { role: "start_image" }, ref: { role: "image_references" } } },
+  { id: "magi_2", kind: "video", name: "MAGI-2", ar: ["9:16", "16:9", "1:1", "4:3", "3:4", "21:9"], dur: [4, 30, 5], opts: { resolution: ["1080p"] }, audio: true, one: true, ref: { start: { role: "start_image" }, ref: { role: "image_references" } } }
 ];
 const LABEL = { quality: "Qualität", resolution: "Auflösung", aspect_ratio: "Format", duration: "Länge", count: "Anzahl" };
 const M = id => MODELS.find(m => m.id === id);
@@ -564,10 +589,65 @@ const save = () => { try {
   localStorage.setItem(KEY, JSON.stringify({ kind: S.kind, model: S.model, set: S.set, prompt: S.prompt,
     hidden: S.hidden.slice(-300), chatOpen: S.chatOpen, helpOff: S.helpOff, tile: S.tile, jobs: S.jobs.slice(0, 60).map(({ el, blob, eblob, epath, showOrig, loading, queued, ...j }) => j), chat: S.chat.slice(-30),
     edits: Object.fromEntries(Object.entries(S.edits).filter(([, e]) => e && (!edIdentity(e) || e.saved?.length)).slice(-200)) }));
-} catch (e) {} };
+} catch (e) {} try { syChatSoon(); } catch (e) {} };
 
 let mcp = null, sample = null, desk = null, local = false, HOME = "", DIR = "", canTools = false;
 const use = n => window.claude?.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null);
+
+/* Abgleich zwischen Handy und Computer: Chat und Personen liegen zusätzlich im Speicher deines Higgsi in Claude (nur du kannst Higgsi öffnen).
+   Die Fotos selbst bleiben auf dem Computer. Abgeglichen werden nur Name, Hinweis und die bei Higgsfield hochgeladenen Fotos. */
+let syBase = "", syChatAt = 0, syChatStr = "", syChatT = 0, syProfStr = "", syLive = false, syBeatDone = false;
+const syBeat = () => { if (!local || !syLive || syBeatDone || !pvDb) return; syBeatDone = true; pvDb.doc(syBase + "/computer").set({ at: Date.now() }).catch(() => { syBeatDone = false; }); };
+const syWait = async ms => { if (local || !pvDb) return; const t0 = Date.now(); while (!syLive && Date.now() - t0 < ms) await new Promise(r => setTimeout(r, 100)); };
+const SYDEV = Math.random().toString(36).slice(2, 10);
+const syChatItems = () => S.chat.filter(c => c && !c.pending && ((((c.role === "user" || c.role === "assistant") && c.content)) || (c.role === "card" && M(c.model)))).slice(-30)
+  .map(c => c.role === "card" ? { role: "card", model: c.model, prompt: String(c.prompt || "").slice(0, 6000), set: c.set || {}, persons: Array.isArray(c.persons) ? c.persons.map(String).slice(0, 6) : [], est: typeof c.est === "number" ? c.est : null, state: c.state === "busy" ? "open" : c.state }
+    : { role: c.role, content: String(c.content).slice(0, 8000) });
+const syChatSoon = () => {
+  if (!syLive || ctl) return;
+  const str = JSON.stringify(syChatItems()); if (str === syChatStr) return;
+  clearTimeout(syChatT);
+  syChatT = setTimeout(() => { syChatStr = str; syChatAt = Date.now(); pvDb.doc(syBase + "/chat").set({ at: syChatAt, dev: SYDEV, items: JSON.parse(str) }).catch(() => { syChatStr = ""; }); }, 1200);
+};
+const syGotChat = x => {
+  if (!x || !Array.isArray(x.items) || x.dev === SYDEV || !(+x.at > syChatAt) || ctl) return;
+  syChatAt = +x.at;
+  S.chat = x.items.filter(c => c && (((c.role === "user" || c.role === "assistant") && typeof c.content === "string" && c.content) || (c.role === "card" && M(c.model) && typeof c.prompt === "string")))
+    .map(c => c.role === "card" ? { role: "card", model: c.model, prompt: c.prompt, set: clean(M(c.model), c.set && typeof c.set === "object" ? c.set : {}), persons: Array.isArray(c.persons) ? c.persons.map(String) : [], est: typeof c.est === "number" ? c.est : null, state: ["open", "started", "dropped"].includes(c.state) ? c.state : "open" }
+      : { role: c.role, content: c.content });
+  syChatStr = JSON.stringify(syChatItems()); drawChat(); save();
+};
+const syProfile = () => JSON.stringify({ wissen: String(P?.wissen || "").slice(0, 12000), personen: people().filter(x => !x.remote).slice(0, 20).map(x => ({ name: String(x.name).slice(0, 60), hinweis: String(x.hinweis || "").slice(0, 200),
+  media: Array.isArray(x.media) && x.media.length && x.media.every(id => UUID.test(String(id))) ? x.media.map(String) : [], mediaAt: +x.mediaAt || 0 })) });
+const syProfPush = () => {
+  if (!syLive || !local) return;
+  const str = syProfile(); if (str === syProfStr) return; syProfStr = str;
+  pvDb.doc(syBase + "/profil").set({ at: Date.now(), ...JSON.parse(str) }).catch(() => { syProfStr = ""; });
+};
+const syGotProf = x => {
+  if (local || !x || !Array.isArray(x.personen)) return;
+  P = { wissen: typeof x.wissen === "string" ? x.wissen : "", personen: x.personen.filter(q => q && typeof q.name === "string" && q.name && Array.isArray(q.media) && q.media.length && q.media.every(id => UUID.test(String(id))))
+    .map(q => ({ name: q.name, hinweis: typeof q.hinweis === "string" ? q.hinweis : "", media: q.media.map(String), mediaAt: +q.mediaAt || 0, remote: true })) };
+  S.persons = S.persons.filter(n => people().some(y => y.name === n)); drawPeople();
+};
+/* Damit das Handy die Fotos nutzen kann, lädt der Computer sie bei Higgsfield neu hoch, wenn sie älter als drei Tage sind */
+let syBusy = false;
+const syRefresh = async () => {
+  if (!local || !mcp || syBusy) return; syBusy = true;
+  for (const x of people().filter(y => !y.remote)) { try { await personRefs([x.name], null, 2592e5); } catch (e) {} }
+  syBusy = false; syProfPush();
+};
+const syInit = async () => {
+  if (!pvDb) return;
+  syBase = "sync";
+  try {
+    pvDb.collection(syBase).onSnapshot(s => {
+      for (const d of s.docs) { if (d.id === "chat") syGotChat(d.data()); else if (d.id === "profil") { H.comp = "ok"; syGotProf(d.data()); } else if (d.id === "computer") H.comp = "ok"; }
+      if (!s.metadata?.fromCache) { if (H.comp === "?") H.comp = "missing"; if (!syLive) { syLive = true; syChatSoon(); syRefresh(); syBeat(); } }
+      drawHelp();
+    }, () => {});
+  } catch (e) {}
+};
 
 const ERR = {
   needs_reauth: "Higgsfield muss neu verbunden werden: in Claude unter Einstellungen, Connectors.",
@@ -580,7 +660,7 @@ const ERR = {
   server_unavailable: "Higgsfield antwortet gerade nicht. Versuch es gleich noch einmal.",
   rate_limited: "Zu viele Anfragen. Warte kurz und versuch es noch einmal."
 };
-const say = e => ERR[e?.code] || (e?.code === "tool_error" ? "Higgsfield meldet: " + String(e.message || "").slice(0, 300) : "Das hat nicht geklappt: " + String(e?.message || e || "unbekannter Fehler").slice(0, 300));
+const say = e => ERR[e?.code] || (e?.code === "local" ? String(e.message || "") : e?.code === "tool_error" ? "Higgsfield meldet: " + String(e.message || "").slice(0, 300) : "Das hat nicht geklappt: " + String(e?.message || e || "unbekannter Fehler").slice(0, 300));
 const note = (text, btn, fn) => {
   $("note").hidden = !text; $("notetext").textContent = mac(text || "");
   $("notebtn").hidden = !btn; if (btn) { $("notebtn").textContent = btn; $("notebtn").onclick = fn; }
@@ -631,7 +711,7 @@ const buildParams = (m, prompt, set, refs) => {
   if (m.dur) p.duration = set.duration;
   if (m.audio) p.generate_audio = !!set.generate_audio;
   if (m.count && set.count > 1) p.count = set.count;
-  if (m.kind === "video") p.mode = refs.length ? m.ref[refs[0].as === "ref" ? "ref" : "start"].mode : m.base;
+  if (m.kind === "video") { const md = refs.length ? m.ref[refs[0].as === "ref" ? "ref" : "start"].mode : m.base; if (md) p.mode = md; }
   if (refs.length) {
     let start = false;
     p.medias = refs.map(r => {
@@ -680,12 +760,16 @@ const drawCompose = keep => {
   const items = [
     h("div", { class: "seg", id: "kind" }, ["image", "video"].map(k => h("button", { "aria-pressed": String(S.kind === k), text: k === "image" ? "Bild" : "Video", onclick: () => { S.kind = k; pop = ""; drawCompose(); save(); } }))),
     local ? h("button", { class: "ob", title: "Bild vom Mac als Vorlage hinzufügen", "aria-label": "Bild vom Mac als Vorlage hinzufügen", text: "+", onclick: () => $("file").click() }) : null,
-    people().length ? optBtn("people", "Wer ist im Bild", "@" + (S.persons.length ? " " + S.persons.join(", ") : ""), h("div", { class: "plist" }, people().map(x => h("div", { class: "prow" },
+    (people().length || auList().length) ? optBtn("people", "Wer ist im Bild", "@" + (S.persons.length ? " " + S.persons.join(", ") : ""), h("div", { class: "plist" }, people().map(x => h("div", { class: "prow" },
       h("button", { class: "pi", "aria-pressed": String(S.persons.includes(x.name)), title: x.hinweis || "", text: x.name,
         onclick: () => { S.persons = S.persons.includes(x.name) ? S.persons.filter(n => n !== x.name) : [...S.persons, x.name]; drawCompose(true); } }),
-      h("button", { class: "pedit", text: "Ändern", title: "Umbenennen, Fotos tauschen oder entfernen", "aria-label": x.name + " ändern", onclick: () => { pop = ""; drawCompose(true); openPerson(x); } }))),
-      h("button", { class: "pi padd", text: "+ Person hinzufügen", onclick: () => { pop = ""; drawCompose(true); openPerson(null); } })))
-      : h("button", { class: "ob", title: "Person mit Fotos hinterlegen, damit sie in Bildern und Videos vorkommen kann", text: "+ Person hinzufügen", onclick: e => { e.stopPropagation(); openPerson(null); } }),
+      local ? h("button", { class: "pedit", text: "Ändern", title: "Umbenennen, Fotos tauschen oder entfernen", "aria-label": x.name + " ändern", onclick: () => { pop = ""; drawCompose(true); openPerson(x); } }) : null)),
+      auList().map(([id, x]) => h("div", { class: "prow pwait" },
+        h("div", { class: "pw" }, h("b", { text: x.name }), h("small", { text: x.state === "failed" ? "Hat nicht geklappt. " + (x.msg || "") : local ? "Wird gerade angelegt …" : "Wartet, bis Higgsi auf deinem Computer offen ist." })),
+        h("button", { class: "pedit", text: "Entfernen", "aria-label": x.name + " entfernen", onclick: () => auDrop(id) }))),
+      h("button", { class: "pi padd", text: "+ Person hinzufügen", onclick: () => { pop = ""; drawCompose(true); openPerson(null); } }),
+      !local && NODESK && people().length ? h("p", { class: "hint pnote", text: "Ändern oder entfernen kannst du Personen in Higgsi auf deinem Computer." }) : null))
+      : h("button", { class: "ob", title: "Dich oder jemand anderen mit Fotos hinterlegen, damit die Person in Bildern und Videos vorkommen kann", text: "+ Person hinzufügen", onclick: e => { e.stopPropagation(); openPerson(null); } }),
     optBtn("model", "Modell", m.name, h("div", { class: "plist" }, MODELS.filter(x => x.kind === S.kind).map(x => h("button", { class: "pi", "aria-pressed": String(x.id === m.id), text: x.name, onclick: () => { S.model[S.kind] = x.id; pop = ""; drawCompose(); save(); } })))),
     optBtn("aspect_ratio", "Format", [shape(String(set.aspect_ratio)), String(set.aspect_ratio)], list("aspect_ratio", m.ar)),
     ...Object.entries(m.opts).map(([k, v]) => optBtn(k, LABEL[k], String(set[k]), list(k, v)))
@@ -723,7 +807,10 @@ const firstUrl = o => {
   if (o && typeof o === "object") for (const v of Object.values(o)) { const u = firstUrl(v); if (u) return u; }
   return null;
 };
+const roleClash = (m, refs) => { if (!m.one || m.kind !== "video" || refs.length < 2) return false; let start = false, a = false, b = false;
+  for (const r of refs) { if (r.as === "start" && !start) { start = true; a = true; } else b = true; } return a && b; };
 const submit = async (m, prompt, set, refs, pay) => {
+  if (roleClash(m, refs)) throw { code: "local", message: m.name + " nimmt entweder ein Startbild oder Referenzen, nicht beides zusammen. Nimm das Startbild oder die Person heraus, stell alle Vorlagen auf dieselbe Verwendung oder wähle ein anderes Modell." };
   const params = buildParams(m, prompt, set, refs);
   if (pay != null) params.use_unlim = pay;
   const at = Date.now(), est = estNow;
@@ -785,6 +872,7 @@ const fetchMedia = async j => {
     const bytes = await desk.fs.readFile(path);
     j.blob = URL.createObjectURL(new Blob([bytes], { type: TYPES[extOf(j)] }));
     await loadEdited(j);
+    pvQueue(j);
   } catch (e) { j.mediaErr = "Vorschau nicht möglich, die Datei liegt aber im Ordner Bilder, Higgsi."; }
   j.loading = false; drawJob(j);
 };
@@ -819,18 +907,21 @@ const uploadRef = async file => {
 
 /* Profil: eigenes Wissen und Personen mit Referenzfotos, liegt nur auf dem eigenen Mac */
 let P = null;
-const people = () => (P?.personen || []).filter(x => x && x.name && Array.isArray(x.fotos) && x.fotos.length);
+const people = () => (P?.personen || []).filter(x => x && x.name && ((Array.isArray(x.fotos) && x.fotos.length) || (x.remote && Array.isArray(x.media) && x.media.length)));
 const drawPeople = () => drawCompose(true);
 const loadProfile = async () => {
   try { const p = JSON.parse(await desk.fs.readFile(DIR + "/profil.json", "utf8")); if (p && Array.isArray(p.personen)) P = p; } catch (e) {}
   S.persons = S.persons.filter(n => people().some(x => x.name === n)); drawPeople();
 };
-const personRefs = async (names, say) => {
+const personRefs = async (names, say, maxAge = 6048e5) => {
   const out = [];
   for (const x of people().filter(x => names.includes(x.name))) {
-    const fresh = Array.isArray(x.media) && x.media.length === x.fotos.length && x.media.every(id => UUID.test(String(id))) && Date.now() - (+x.mediaAt || 0) < 6048e5;
+    if (x.remote) { for (const id of x.media) out.push({ value: id, label: x.name, as: "ref" }); continue; }
+    const fresh = Array.isArray(x.media) && x.media.length === x.fotos.length && x.media.every(id => UUID.test(String(id))) && Date.now() - (+x.mediaAt || 0) < maxAge;
     if (!fresh) {
-      const ids = []; for (const f of x.fotos) { say?.(`Referenzfoto ${ids.length + 1} von ${x.fotos.length} wird hochgeladen …`); ids.push(await uploadPath(fwd(f).replace(/^~(?=\/)/, HOME))); }
+      const ids = []; for (const f of x.fotos) { say?.(`Referenzfoto ${ids.length + 1} von ${x.fotos.length} wird hochgeladen …`); const fp = fwd(f).replace(/^~(?=\/)/, HOME);
+        if (!(await desk.fs.exists(fp).catch(() => true))) throw { code: "local", message: "Ein Foto von " + x.name + " liegt nicht mehr im Ordner. Öffne die Person über Ändern und wähle das Foto neu." };
+        ids.push(await uploadPath(fp)); }
       x.media = ids; x.mediaAt = Date.now();
       desk.fs.writeFile(DIR + "/profil.json", JSON.stringify(P, null, 2), "utf8").catch(() => {});
     }
@@ -839,14 +930,21 @@ const personRefs = async (names, say) => {
   return out;
 };
 const PERSON_NOTE = names => "\n\n" + (names.length > 1 ? "The people in the image are the people from the reference images (" + names.join(", ") + ", in that order of the reference images)." : "The main person is the person from the reference images.");
+/* Am Handy kommen die Fotos vom Computer. Sind sie bei Higgsfield abgelaufen, hilft nur, Higgsi am Computer zu öffnen. */
+const sayGen = (e, names) => {
+  const rem = people().filter(x => x.remote && (names || []).includes(x.name));
+  if (rem.length && e?.code === "tool_error" && (/media|reference|not.?found|expired|invalid|input/i.test(String(e.message || "")) || rem.some(x => Date.now() - (+x.mediaAt || 0) > 6048e5)))
+    return "Die Fotos von " + rem.map(x => x.name).join(" und ") + " müssen aufgefrischt werden. Öffne Higgsi einmal auf deinem Computer, das passiert dort von selbst. Danach klappt es hier wieder.";
+  return say(e);
+};
 const withPeople = async (prompt, refs, names, say) => {
   names = (names || []).filter(n => people().some(x => x.name === n));
-  if (!names.length || !local) return { prompt, refs };
+  if (!names.length) return { prompt, refs };
   return { prompt: prompt + PERSON_NOTE(names), refs: [...refs, ...await personRefs(names, say)] };
 };
 
 /* Start-Hilfe für den ersten Start: hakt sich selbst ab */
-const H = { inst: "?", mcp: "?", mcpMsg: "", acc: "?" };
+const H = { inst: "?", mcp: "?", mcpMsg: "", acc: "?", comp: "?" };
 const CONNECT = ["needs_reauth", "server_not_connected", "selection_required", "not_in_manifest", "not_granted"];
 const helpShown = () => !$("help").hidden;
 const helpMcp = e => {
@@ -862,6 +960,7 @@ const askAccess = async () => {
   helpBusy = false; await recheck();
 };
 const drawHelp = () => {
+  if (NODESK) return drawHelpFar();
   const done = { inst: H.inst === "inapp" || H.inst === "installed", mcp: H.mcp === "ok", acc: H.acc === "granted" };
   const open = (H.inst !== "?" && !done.inst) || (H.mcp !== "?" && !done.mcp) || (H.acc !== "?" && !done.acc);
   const show = !S.helpOff && open;
@@ -889,6 +988,27 @@ const drawHelp = () => {
       H.acc === "noapp" ? t("Geht, sobald Higgsi als App installiert ist.") :
       t("Claude erlaubt diesen Zugriff für Higgsi gerade nicht. Bilder und Videos erstellen und der Chat gehen trotzdem.")));
 };
+const drawHelpFar = () => {
+  const mcpOk = H.mcp === "ok", compOk = H.comp === "ok";
+  const show = !S.helpOff && ((H.mcp !== "?" && !mcpOk) || H.comp === "missing");
+  $("help").hidden = !show; $("install").hidden = true;
+  if (!show) return;
+  const hp = $("help").querySelector(".hhead p"); if (hp) hp.textContent = "Erstellen geht sofort. Für Vorschaubilder und Personen braucht Higgsi einmal deinen Computer.";
+  const btn = (text, fn) => h("button", { class: "btn sm", text, onclick: fn });
+  const step = (n, ok, title, ...body) => h("li", { class: "hstep" + (ok ? " done" : "") }, h("span", { class: "hk", text: ok ? "" : String(n), "aria-label": ok ? "Erledigt" : "Offen" }), h("div", {}, h("b", { text: title }), ...body));
+  const t = text => h("p", { text });
+  $("hsteps").replaceChildren(
+    step(1, mcpOk, "Higgsfield verbinden",
+      mcpOk ? t("Erledigt. Dein Guthaben steht oben.") :
+      H.mcp === "?" ? t("Wird geprüft …") :
+      H.mcp === "noclaude" ? t("Higgsi läuft nur in Claude. Öffne Higgsi in der Claude-App unter Artefakte.") :
+      [t(H.mcpMsg || "Öffne in Claude die Einstellungen, dann Connectors, und füge Higgsfield hinzu. Danach einmal bei Higgsfield anmelden."), btn("Nochmal prüfen", () => { H.mcp = "?"; boot(); })]),
+    step(2, compOk, "Higgsi am Computer einrichten",
+      compOk ? t("Erledigt. Dein Computer liefert Vorschaubilder und Personen.") :
+      t("Öffne Higgsi einmal in der Claude-App auf deinem Computer, wähle dort Als App installieren und erlaube den Zugriff. Danach erscheinen hier Vorschaubilder und deine Personen.")),
+    step(3, false, "Loslegen",
+      t("Schreib unten, was entstehen soll, und tipp auf Erstellen. Oder frag Claude im Chat. Solange ein Vorschaubild fehlt, siehst du das Ergebnis über Öffnen.")));
+};
 const recheck = async () => {
   if (desk?.fs) H.inst = "inapp";
   else H.inst = desk?.install ? await desk.install.state().catch(() => "unavailable") : "unavailable";
@@ -912,13 +1032,13 @@ const readProfile = async () => {
   if (!Array.isArray(p.personen)) p.personen = [];
   return p;
 };
-const writeProfile = async p => { await desk.fs.mkdir(DIR, { recursive: true }); await desk.fs.writeFile(DIR + "/profil.json", JSON.stringify(p, null, 2), "utf8"); P = p; };
+const writeProfile = async p => { await desk.fs.mkdir(DIR, { recursive: true }); await desk.fs.writeFile(DIR + "/profil.json", JSON.stringify(p, null, 2), "utf8"); P = p; syRefresh(); };
 const closePerson = () => {
   if (PD) for (const x of PD.photos) if (x.url) URL.revokeObjectURL(x.url);
   const back = PD?.back; PD = null; $("pdlg").hidden = true; $("pdbox").replaceChildren(); back?.focus?.();
 };
 const openPerson = person => {
-  PD = { mode: local ? "edit" : "noaccess", person, name: person?.name || "", photos: [], err: "", busy: false, back: document.activeElement };
+  PD = { mode: local ? "edit" : NODESK ? (pvDb && pvAssets && !person ? "remote" : "nophone") : "noaccess", person, name: person?.name || "", photos: [], err: "", note: "", busy: false, back: document.activeElement };
   if (person && local) for (const f of person.fotos || []) {
     const x = { path: fwd(f).replace(/^~(?=\/)/, HOME), url: "" }; PD.photos.push(x);
     desk.fs.readFile(x.path).then(b => { if (!PD || !PD.photos.includes(x)) return; const ext = x.path.split(".").pop().toLowerCase(); x.url = URL.createObjectURL(new Blob([b], { type: TYPES[ext] || "image/jpeg" })); drawPerson(); }, () => {});
@@ -926,7 +1046,7 @@ const openPerson = person => {
   $("pdlg").hidden = false; drawPerson(true);
 };
 const addPhotos = files => {
-  if (!PD || PD.mode !== "edit") return;
+  if (!PD || (PD.mode !== "edit" && PD.mode !== "remote")) return;
   PD.err = "";
   for (const f of files) {
     if (PD.photos.length >= 3) { PD.err = "Höchstens 3 Fotos pro Person."; break; }
@@ -942,9 +1062,10 @@ const savePerson = async () => {
   if (!name) PD.err = "Gib der Person einen Namen.";
   else if (name.length > 40) PD.err = "Der Name ist zu lang, höchstens 40 Zeichen.";
   else if (!PD.photos.length) PD.err = "Wähle mindestens ein Foto.";
-  else if ((P?.personen || []).some(x => x && x !== PD.person && String(x.name).toLowerCase() === name.toLowerCase())) PD.err = "Diesen Namen gibt es schon.";
+  else if ((P?.personen || []).some(x => x && x !== PD.person && String(x.name).toLowerCase() === name.toLowerCase()) || Object.values(AU).some(x => x.name.toLowerCase() === name.toLowerCase())) PD.err = "Diesen Namen gibt es schon.";
   if (PD.err) return drawPerson();
   PD.busy = true; drawPerson();
+  if (PD.mode === "remote") return savePersonFar(name);
   try {
     let prof; try { prof = await readProfile(); } catch (e) { throw new Error("Die Datei profil.json im Ordner Bilder, Higgsi lässt sich nicht lesen. Damit nichts verloren geht, wurde nichts geändert."); }
     const pdir = DIR + "/personen"; await desk.fs.mkdir(pdir, { recursive: true });
@@ -965,8 +1086,28 @@ const savePerson = async () => {
     await writeProfile(prof);
     for (const f of before) if (!fotos.includes(f) && f.startsWith(pdir + "/")) desk.shell.trashItem(nat(f)).catch(() => {});
     if (oldName && oldName !== name) S.persons = S.persons.map(n => n === oldName ? name : n);
-    closePerson(); drawPeople();
+    drawPeople();
+    if (PD.person) closePerson(); else { PD.busy = false; PD.mode = "done"; PD.name = name; drawPerson(true); }
   } catch (e) { PD.busy = false; PD.err = String(e?.message || e).startsWith("Die Datei") ? e.message : "Speichern hat nicht geklappt: " + String(e?.message || e).slice(0, 160); drawPerson(); }
+};
+/* Am Handy: Fotos verkleinert in der Ablage von Higgsi zwischenlagern, der Computer holt sie ab und legt die Person an */
+const savePersonFar = async name => {
+  const ids = [];
+  try {
+    for (const x of PD.photos) {
+      PD.note = "Foto " + (ids.length + 1) + " von " + PD.photos.length + " wird übertragen …"; drawPerson();
+      let b; try { b = await pvShot(x.url, false, 2048, .9); } catch (e) { throw { code: "local", message: "Foto " + (ids.length + 1) + " ließ sich nicht lesen. Nimm bitte ein anderes Foto (JPG oder PNG)." }; }
+      const r = await pvAssets.upload(b, { type: "image/jpeg" });
+      if (!PVID.test(String(r?.id))) throw new Error("Ablage");
+      ids.push(r.id);
+    }
+    const id = "p" + Date.now().toString(36) + SYDEV, doc = { t: "person", name, fotos: ids, at: Date.now(), state: "wait" };
+    await pvDb.doc("auftrag/" + id).set(doc); AU[id] = { ...doc, msg: "" };
+    PD.busy = false; PD.note = ""; PD.mode = "sent"; PD.name = name; drawPerson(true); drawPeople();
+  } catch (e) {
+    for (const a of ids) pvAssets.delete(a).catch(() => {});
+    PD.busy = false; PD.note = ""; PD.err = e?.code === "local" ? e.message : "Das Übertragen hat nicht geklappt. Prüf deine Verbindung und versuch es noch einmal."; drawPerson();
+  }
 };
 const removePerson = async () => {
   PD.busy = true; drawPerson();
@@ -984,7 +1125,15 @@ const removePerson = async () => {
 const drawPerson = focus => {
   if (!PD) return;
   const box = $("pdbox"), cancel = h("button", { class: "btn", text: "Abbrechen", onclick: closePerson });
-  if (PD.mode === "noaccess") {
+  if (PD.mode === "nophone" || PD.mode === "sent" || PD.mode === "done") {
+    const T = PD.mode === "sent" ? ["Fast fertig", PD.name + " ist gespeichert. Higgsi legt die Person an, sobald es auf deinem Computer offen ist. Danach wählst du sie hier unten beim @-Zeichen aus.",
+        H.comp === "ok" ? "Läuft Higgsi auf deinem Computer gerade, dauert das nur einen Moment." : "Du hast Higgsi noch nicht auf deinem Computer eingerichtet? Hol das einmal nach, dann ist die Person da."]
+      : PD.mode === "done" ? ["Fertig", PD.name + " ist angelegt. Wähle die Person unten beim @-Zeichen aus, dann kommt sie ins Bild.", "Am Handy ist sie auch gleich da. Die Fotos bleiben auf deinem Mac."]
+      : PD.person ? ["Ändern geht am Computer", "Umbenennen, Fotos tauschen oder entfernen kannst du eine Person in Higgsi auf deinem Computer.", "Auswählen kannst du sie hier jederzeit."]
+      : ["Person am Computer anlegen", "Öffne Higgsi auf deinem Computer und klick unten auf + Person hinzufügen. Gib einen Namen ein und wähle 1 bis 3 Fotos.", "Danach ist die Person auch hier da."];
+    box.replaceChildren(h("h2", { text: "Wer ist im Bild" }), h("h1", { id: "pdtitle", text: T[0] }), h("p", { text: T[1] }), h("p", { text: T[2] }),
+      h("div", { class: "dacts" }, h("button", { class: "btn go", text: PD.mode === "nophone" ? "Verstanden" : "Fertig", onclick: closePerson })));
+  } else if (PD.mode === "noaccess") {
     const inApp = !!desk?.fs, canAsk = inApp && (H.acc === "prompt" || H.acc === "denied");
     box.replaceChildren(...[h("h2", { text: "Person hinzufügen" }), h("h1", { id: "pdtitle", text: "Erst Zugriff auf den Mac erlauben" }),
       h("p", { text: "Die Fotos einer Person speichert Higgsi nur auf deinem Mac, im Ordner Bilder, Higgsi. Dafür braucht Higgsi den Zugriff auf deinen Mac." }),
@@ -1003,18 +1152,19 @@ const drawPerson = focus => {
     const drop = h("div", { class: "drop" },
       PD.photos.length ? h("div", { class: "thumbs" }, PD.photos.map((x, i) => h("div", { class: "thumb" }, x.url ? h("img", { src: x.url, alt: "Foto " + (i + 1) }) : null,
         h("button", { "aria-label": "Foto " + (i + 1) + " entfernen", text: "×", disabled: PD.busy, onclick: () => { if (x.url && x.file) URL.revokeObjectURL(x.url); PD.photos.splice(i, 1); PD.err = ""; drawPerson(); } })))) : null,
-      h("span", { text: PD.photos.length >= 3 ? "Drei Fotos sind genug." : "Fotos hierher ziehen oder auswählen, 1 bis 3 Stück." }),
+      h("span", { text: PD.photos.length >= 3 ? "Drei Fotos sind genug." : PD.mode === "remote" ? "Wähle 1 bis 3 Fotos aus." : "Fotos hierher ziehen oder auswählen, 1 bis 3 Stück." }),
       PD.photos.length < 3 ? h("button", { class: "btn sm", text: PD.photos.length ? "Weiteres Foto wählen" : "Fotos auswählen", disabled: PD.busy, onclick: () => $("pfile").click() }) : null);
     drop.ondragover = e => { e.preventDefault(); drop.classList.add("over"); };
     drop.ondragleave = () => drop.classList.remove("over");
     drop.ondrop = e => { e.preventDefault(); drop.classList.remove("over"); addPhotos([...(e.dataTransfer?.files || [])]); };
     box.replaceChildren(...[h("h2", { text: "Wer ist im Bild" }), h("h1", { id: "pdtitle", text: PD.person ? "Person ändern" : "Person hinzufügen" }),
-      h("p", { text: "Higgsi nimmt die Fotos als Vorlage, wenn du die Person auswählst. Am besten klare, helle Fotos vom Gesicht." }),
+      h("p", { text: PD.mode === "remote" ? "Gib einen Namen ein und wähle 1 bis 3 klare, helle Fotos vom Gesicht. Angelegt wird die Person, sobald Higgsi auf deinem Computer offen ist."
+        : "Gib einen Namen ein und wähle 1 bis 3 klare, helle Fotos vom Gesicht. Higgsi nimmt sie als Vorlage, sobald du die Person auswählst." }),
       h("label", {}, "Name", input), drop,
       PD.err ? h("p", { class: "err", role: "alert", text: PD.err }) : null,
       h("div", { class: "dacts" }, PD.person ? h("button", { class: "btn bad lft", text: "Entfernen", disabled: PD.busy, onclick: () => { PD.mode = "confirm"; PD.err = ""; drawPerson(); } }) : null,
         h("button", { class: "btn", text: "Abbrechen", disabled: PD.busy, onclick: closePerson }),
-        h("button", { class: "btn go", text: PD.busy ? "Wird gespeichert …" : "Speichern", disabled: PD.busy, onclick: savePerson }))].filter(Boolean));
+        h("button", { class: "btn go", text: PD.busy ? (PD.note || "Wird gespeichert …") : "Speichern", disabled: PD.busy, onclick: savePerson }))].filter(Boolean));
     if (focus) setTimeout(() => input.focus(), 0);
     return;
   }
@@ -1025,6 +1175,187 @@ $("pdlg").onclick = e => { if (e.target === $("pdlg") && !PD?.busy) closePerson(
 $("pdlg").addEventListener("dragover", e => e.preventDefault());
 $("pdlg").addEventListener("drop", e => { e.preventDefault(); if (PD?.mode === "edit" && !PD.busy) addPhotos([...(e.dataTransfer?.files || [])]); });
 document.addEventListener("keydown", e => { if (e.key === "Escape" && PD && !PD.busy) { e.stopImmediatePropagation(); closePerson(); } }, true);
+
+/* Vorschaubilder fürs Handy: Außerhalb der installierten App darf Higgsi keine Bilder von fremden Adressen laden. Deshalb legt die installierte App von jedem fertigen Ergebnis eine kleine Kopie bei Higgsi ab (Bild als JPEG, Video als Standbild), und Handy oder Browser zeigen diese Kopie. */
+let pvDb = null, pvAssets = null, pvReady = false, pvStop = false, pvLane = Promise.resolve();
+const PV = {}, pvBusy = new Set(), PVID = /^[A-Za-z0-9_-]{8,80}$/;
+const pvOf = j => PV[j.id] ? "/_blob/" + PV[j.id] : "";
+const pvShot = (src, video, max = 960, q = .84) => new Promise((res, rej) => {
+  const el = video ? document.createElement("video") : new Image();
+  const t = setTimeout(() => rej(new Error("Zeitüberschreitung")), 30000);
+  const grab = () => {
+    clearTimeout(t);
+    try {
+      const w0 = video ? el.videoWidth : el.naturalWidth, h0 = video ? el.videoHeight : el.naturalHeight;
+      if (!w0 || !h0) throw new Error("leer");
+      const k = Math.min(1, max / Math.max(w0, h0)), c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(w0 * k)); c.height = Math.max(1, Math.round(h0 * k));
+      c.getContext("2d").drawImage(el, 0, 0, c.width, c.height);
+      c.toBlob(b => b ? res(b) : rej(new Error("kein Bild")), "image/jpeg", q);
+    } catch (e) { rej(e); }
+  };
+  el.onerror = () => { clearTimeout(t); rej(new Error("nicht lesbar")); };
+  if (video) { el.muted = true; el.playsInline = true; el.preload = "auto"; el.onloadeddata = () => { el.currentTime = Math.min(.5, (el.duration || 1) / 3); }; el.onseeked = grab; }
+  else el.onload = grab;
+  el.src = src;
+});
+const pvMake = async j => {
+  try {
+    if (pvStop || PV[j.id] || !j.blob) return;
+    const b = await pvShot(j.blob, j.kind === "video");
+    const r = await pvAssets.upload(b, { type: "image/jpeg" });
+    if (!PVID.test(String(r?.id))) return;
+    PV[j.id] = r.id;
+    await pvDb.doc("vorschau/" + j.id).set({ a: r.id, k: j.kind, at: Date.now() });
+  } catch (e) { if (e?.code === "quota_or_state" || e?.code === "quota_exceeded" || e?.code === "not_granted") pvStop = true; }
+  finally { pvBusy.delete(j.id); }
+};
+const pvQueue = j => {
+  if (!local || !pvDb || !pvAssets || !pvReady || pvStop || j.status !== "done" || !UUID.test(String(j.id)) || PV[j.id] || pvBusy.has(j.id)) return;
+  pvBusy.add(j.id); pvLane = pvLane.then(() => pvMake(j));
+};
+const pvFill = () => { if (!local || !pvAssets || !pvReady || pvStop) return; for (const j of S.jobs) if (j.status === "done" && !PV[j.id]) { if (j.blob) pvQueue(j); else loadMedia(j, false); } };
+/* Aufräumen: Vorschaukopien, die älter als 30 Tage sind, löscht die installierte App einmal pro Start. Die Originale bleiben bei Higgsfield und auf dem Computer im Ordner Bilder, Higgsi. */
+let pvCleaned = false;
+const pvClean = async docs => {
+  pvCleaned = true;
+  const limit = Date.now() - 30 * 864e5;
+  for (const d of docs) {
+    const x = d.data() || {}, at = +x.at || 0;
+    if (!at || at >= limit) continue;
+    try {
+      if (typeof x.a === "string" && PVID.test(x.a)) await pvAssets.delete(x.a);
+      await pvDb.doc("vorschau/" + d.id).delete();
+      delete PV[d.id];
+    } catch (e) { if (e?.code !== "store_unavailable" && e?.code !== "unavailable") break; }
+  }
+};
+const pvWatch = () => {
+  if (!pvDb) return;
+  try {
+    pvDb.collection("vorschau").onSnapshot(s => {
+      let changed = false;
+      for (const d of s.docs) { const a = d.data()?.a; if (UUID.test(d.id) && typeof a === "string" && PVID.test(a) && PV[d.id] !== a) { PV[d.id] = a; changed = true; } }
+      if (!s.metadata?.fromCache) pvReady = true;
+      if (Object.keys(PV).length && H.comp !== "ok") { H.comp = "ok"; drawHelp(); }
+      if (pvReady && local && pvAssets && !pvCleaned) pvClean(s.docs.slice());
+      if (changed && !local) for (const j of S.jobs) if (j.el) drawJob(j);
+      pvFill();
+    }, () => {});
+  } catch (e) {}
+};
+
+/* Handy und Computer arbeiten zusammen: Was am Handy bearbeitet oder angelegt wird, liegt als kleiner Auftrag im Speicher von Higgsi.
+   Die installierte App auf dem Computer erledigt ihn (volle Auflösung rechnen, Person mit Fotos anlegen) und meldet das Ergebnis zurück. */
+const ED = {}, AU = {}, hwTried = {};
+let edLive = false, auLive = false, hwBusy = false, hwAgain = false, histDone = false, edCleaned = false;
+const edPvOf = j => { const x = ED[j.id]; return !local && !j.showOrig && x && x.state !== "failed" && typeof x.a === "string" && PVID.test(x.a) ? "/_blob/" + x.a : ""; };
+const auList = () => Object.entries(AU).filter(([, x]) => !people().some(p => String(p.name).toLowerCase() === x.name.toLowerCase()));
+const auDrop = id => { const x = AU[id]; delete AU[id]; drawPeople(); if (!x || !pvDb) return; pvDb.doc("auftrag/" + id).delete().catch(() => {}); for (const a of x.fotos || []) pvAssets?.delete(a).catch(() => {}); };
+const blobBytes = async id => {
+  try { const r = await fetch("/_blob/" + id); if (r.ok) return new Uint8Array(await r.arrayBuffer()); } catch (e) {}
+  return new Uint8Array(await (await pvShot("/_blob/" + id, false, 4096, .95)).arrayBuffer());
+};
+/* Computer: bearbeitete Fassung als Vorschau ablegen und melden, damit auch das Handy sie zeigt */
+const edShare = async (j, base) => {
+  if (!local || !pvDb || !UUID.test(String(j.id))) return;
+  const e = edOf(j), old = ED[j.id]?.a; let a = "";
+  if (pvAssets && !pvStop && j.eblob) { try { const r = await pvAssets.upload(await pvShot(j.eblob, j.kind === "video", j.kind === "video" ? 960 : 2048, .9), { type: "image/jpeg" }); if (PVID.test(String(r?.id))) a = r.id; }
+    catch (err) { if (err?.code === "quota_or_state" || err?.code === "quota_exceeded" || err?.code === "not_granted") pvStop = true; } }
+  const doc = { k: j.kind, v: { ...e.v }, mono: !!e.mono, at: +base?.at || Date.now(), state: "done", doneAt: Date.now(), a };
+  ED[j.id] = doc;
+  try { await pvDb.doc("bearbeitet/" + j.id).set(doc); } catch (err) {}
+  if (a && typeof old === "string" && old !== a && PVID.test(old)) pvAssets.delete(old).catch(() => {});
+};
+const edApply = async (j, x) => {
+  try {
+    for (let i = 0; !j.blob && i < 300 && !j.mediaErr; i++) { if (!j.loading) await fetchMedia(j); if (!j.blob) await new Promise(r => setTimeout(r, 200)); }
+    if (!j.blob) throw new Error("Die Datei ließ sich auf dem Computer nicht laden.");
+    const e = edOf(j), nw = edClean({ v: x.v, mono: x.mono }); e.v = nw.v; e.mono = nw.mono;
+    if (edIdentity(e)) throw new Error("In der Bearbeitung war nichts verändert.");
+    const out = await edRender(j, e, { stop: false, procs: [] }, () => {});
+    e.saved.push(out); save(); j.showOrig = false; await loadEdited(j); drawJob(j);
+    await edShare(j, x);
+  } catch (err) { const doc = { ...x, state: "failed", msg: mac(String(err?.message || err)).slice(0, 200) }; ED[j.id] = doc; await pvDb.doc("bearbeitet/" + j.id).set(doc).catch(() => {}); }
+};
+const auApply = async (id, x) => {
+  const ref = pvDb.doc("auftrag/" + id), drop = () => { for (const a of x.fotos) pvAssets?.delete(a).catch(() => {}); };
+  const fail = msg => ref.set({ t: "person", name: x.name, fotos: x.fotos, at: x.at, state: "failed", msg }).catch(() => {});
+  let made = false;
+  try {
+    const name = String(x.name || "").trim().replace(/\s+/g, " ").slice(0, 40);
+    if (!name || !x.fotos.length) { await ref.delete().catch(() => {}); return; }
+    let prof; try { prof = await readProfile(); } catch (e) { throw new Error("Die Datei profil.json auf dem Computer lässt sich nicht lesen."); }
+    if (!prof.personen.some(p => p && String(p.name).toLowerCase() === name.toLowerCase())) {
+      const pdir = DIR + "/personen"; await desk.fs.mkdir(pdir, { recursive: true });
+      const fotos = [], base = pdir + "/" + slugName(name) + "-" + Date.now().toString(36);
+      for (const a of x.fotos) { const bytes = await blobBytes(a); let path; for (let k = fotos.length + 1; ; k++) { path = base + "-" + k + ".jpg"; if (!(await desk.fs.exists(path))) break; } await desk.fs.writeFile(path, bytes); fotos.push(path); }
+      prof.personen.push({ name, fotos }); await writeProfile(prof); drawPeople();
+    }
+    made = true;
+    for (let i = 0; syBusy && i < 600; i++) await new Promise(r => setTimeout(r, 200));
+    const en = people().find(p => String(p.name).toLowerCase() === name.toLowerCase());
+    if (en && !(Array.isArray(en.media) && en.media.length)) await personRefs([en.name]);
+    syProfPush();
+    await ref.delete().catch(() => {}); drop();
+  } catch (e) {
+    if (made) { drop(); await fail("Die Person ist auf dem Computer angelegt. Die Fotos ließen sich aber noch nicht zu Higgsfield übertragen. Öffne Higgsi am Computer später noch einmal."); }
+    else await fail(String(e?.message || e).slice(0, 180));
+  }
+};
+const hwWork = async () => {
+  if (!local || !pvDb) return;
+  if (hwBusy) { hwAgain = true; return; }
+  hwBusy = true;
+  try {
+    if (auLive) for (const [id, x] of Object.entries(AU)) {
+      if (hwTried["p" + id]) continue;
+      if (x.state === "failed") { const en = (P?.personen || []).find(p => p && String(p.name).toLowerCase() === x.name.toLowerCase()); if (en && Array.isArray(en.media) && en.media.length) { hwTried["p" + id] = 1; pvDb.doc("auftrag/" + id).delete().catch(() => {}); } continue; }
+      hwTried["p" + id] = 1; await auApply(id, x);
+    }
+    if (edLive) for (const [id, x] of Object.entries(ED)) {
+      if (x.state !== "wait" || hwTried[id] === x.at || E?.busy || edit?.id === id) continue;
+      const j = S.jobs.find(q => q.id === id);
+      if (!j || j.status !== "done") {
+        if (!j && histDone && Date.now() - (+x.at || 0) > 1728e5) { hwTried[id] = x.at; const doc = { ...x, state: "failed", msg: "Dieses Ergebnis ist auf dem Computer nicht mehr in der Galerie." }; ED[id] = doc; pvDb.doc("bearbeitet/" + id).set(doc).catch(() => {}); }
+        continue;
+      }
+      hwTried[id] = x.at; await edApply(j, x);
+    }
+  } catch (e) {} finally { hwBusy = false; if (hwAgain) { hwAgain = false; setTimeout(hwWork, 300); } }
+};
+/* Aufräumen wie bei den Vorschaukopien: erledigte Bearbeitungen, die älter als 30 Tage sind */
+const edClean30 = async docs => {
+  edCleaned = true;
+  const limit = Date.now() - 30 * 864e5;
+  for (const d of docs) {
+    const x = d.data() || {}, at = +x.doneAt || +x.at || 0;
+    if (!at || at >= limit || x.state === "wait") continue;
+    try { if (typeof x.a === "string" && PVID.test(x.a)) await pvAssets?.delete(x.a); await pvDb.doc("bearbeitet/" + d.id).delete(); } catch (e) { break; }
+  }
+};
+const hwWatch = () => {
+  if (!pvDb) return;
+  try {
+    pvDb.collection("bearbeitet").onSnapshot(s => {
+      const seen = new Set(), ch = new Set();
+      for (const d of s.docs) { const x = d.data(); if (!UUID.test(d.id) || !x || typeof x !== "object") continue; seen.add(d.id); if (JSON.stringify(ED[d.id]) !== JSON.stringify(x)) { ED[d.id] = x; ch.add(d.id); } }
+      if (!s.metadata?.fromCache) { edLive = true; for (const id of Object.keys(ED)) if (!seen.has(id)) { delete ED[id]; ch.add(id); } }
+      for (const id of ch) { const j = S.jobs.find(q => q.id === id); if (j?.el) drawJob(j); }
+      if (local && edLive && !edCleaned) edClean30(s.docs.slice());
+      hwWork();
+    }, () => {});
+  } catch (e) {}
+  try {
+    pvDb.collection("auftrag").onSnapshot(s => {
+      const seen = new Set();
+      for (const d of s.docs) { const x = d.data(); if (!x || x.t !== "person" || typeof x.name !== "string" || !x.name.trim() || !Array.isArray(x.fotos)) continue; seen.add(d.id);
+        AU[d.id] = { t: "person", name: x.name.trim().slice(0, 40), fotos: x.fotos.map(String).filter(f => PVID.test(f)).slice(0, 3), at: +x.at || 0, state: x.state === "failed" ? "failed" : "wait", msg: typeof x.msg === "string" ? x.msg.slice(0, 200) : "" }; }
+      if (!s.metadata?.fromCache) { auLive = true; for (const id of Object.keys(AU)) if (!seen.has(id)) delete AU[id]; }
+      drawPeople(); hwWork();
+    }, () => {});
+  } catch (e) {}
+};
 
 /* Galerie */
 const io = new IntersectionObserver(es => { for (const e of es) if (e.isIntersecting) { const j = S.jobs.find(x => x.id === e.target.dataset.id); if (j) loadMedia(j, false); } }, { root: $("grid"), rootMargin: "300px" });
@@ -1044,12 +1375,14 @@ const drawJob = j => {
   const media = h("div", { class: "media" });
   if (j.blob && j.kind === "video") { const v = h("video", { src: shown(j) + "#t=0.1", playsinline: true, loop: true, preload: "auto" }); v.muted = true; media.append(v); }
   else if (j.blob) media.append(h("img", { src: shown(j), alt: "" }));
+  else if (!local && (edPvOf(j) || pvOf(j))) media.append(h("img", { src: edPvOf(j) || pvOf(j), alt: "", loading: "lazy" }));
   else if (j.status === "running") media.append(h("div", {}, h("div", { class: "pulse" }), h("span", { class: "kind", text: "Wird erstellt" })));
   else if (j.status === "failed") media.append(h("div", {}, h("span", { class: "kind", text: "Fehlgeschlagen" }), j.error || "", h("div", {}, h("button", { class: "btn sm", text: "Entfernen", onclick: e => { e.stopPropagation(); removeJob(j); } }))));
   else if (j.loading) media.append(h("div", {}, h("div", { class: "pulse" }), "Wird geladen"));
-  else media.append(h("div", {}, h("span", { class: "kind", text: j.kind === "video" ? "Video" : "Bild" }), j.mediaErr || (local ? "" : "Vorschau gibt es in der installierten App.")));
+  else media.append(h("div", {}, h("span", { class: "kind", text: j.kind === "video" ? "Video" : "Bild" }), j.mediaErr || (local ? "" : NODESK ? "Vorschau kommt vom Computer." : "Vorschau folgt, sobald Higgsi als App Zugriff hat."),
+    !local && j.url && j.status === "done" ? h("div", {}, h("a", { class: "btn sm", href: j.url, target: "_blank", rel: "noopener", text: "Öffnen", onclick: e => e.stopPropagation() })) : null));
   media.append(h("span", { class: "badge" + (j.kind === "video" ? " vid" : ""), text: j.kind === "video" ? "Video" : "Bild" }));
-  if (j.eblob && !j.showOrig) media.append(h("span", { class: "edtag" + (j.kind === "video" ? " vid" : ""), text: "Bearbeitet" }));
+  if ((j.eblob && !j.showOrig) || (!local && !j.showOrig && ED[j.id] && ED[j.id].state !== "failed")) media.append(h("span", { class: "edtag" + (j.kind === "video" ? " vid" : ""), text: "Bearbeitet" }));
   const c = costOf(j); if (c) media.append(h("span", { class: "price" + (j.cost != null ? "" : " est0"), text: c }));
   media.append(h("div", { class: "over" }, h("b", { text: m?.name || String(j.model || "") }), h("span", { text: detailOf(j) })));
   j.el.replaceChildren(media);
@@ -1248,19 +1581,22 @@ const edProbe = async path => {
   } catch (e) { return null; }
 };
 
+const canEdit = j => local ? !!j.blob : !!(pvOf(j) && pvDb && j.status === "done");
 const startEdit = j => {
-  if (!local || !j.blob) return;
+  if (!canEdit(j)) return;
   stopEdit();
-  edit = j; E = { j, e: edOf(j), before: false, busy: null, msg: "", fps: 24, src: null, w: 0, h: 0, alive: true };
+  const far = !local;
+  if (far && ED[j.id] && ED[j.id].state !== "failed") S.edits[j.id] = edClean({ v: ED[j.id].v, mono: ED[j.id].mono });
+  edit = j; E = { j, far, e: edOf(j), before: false, busy: null, msg: "", fps: 24, src: null, w: 0, h: 0, alive: true };
   stageKey = ""; drawView();
-  if (j.kind === "video") edProbe(pathOf(j)).then(p => { if (E?.j === j && p) { E.fps = p.fps; E.probe = p; } });
+  if (!far && j.kind === "video") edProbe(pathOf(j)).then(p => { if (E?.j === j && p) { E.fps = p.fps; E.probe = p; } });
 };
 const stopEdit = () => {
   if (!E) return;
   if (E.busy) E.busy.cancel?.();
   E.alive = false; if (E.vid) { E.vid.pause(); E.vid.removeAttribute("src"); E.vid.load(); }
   E.ro?.disconnect(); E.gl?.lose();
-  edit = null; E = null; save();
+  edit = null; E = null; save(); setTimeout(hwWork, 0);
 };
 const edDraw = () => {
   if (!E?.gl || !E.src || !E.w) return;
@@ -1269,7 +1605,8 @@ const edDraw = () => {
 };
 const edFit = () => {
   if (!E?.canvas || !E.w) return;
-  const st = $("vstage"), bw = Math.max(100, st.clientWidth - 24), bh = Math.max(100, st.clientHeight - (E.j.kind === "video" ? 130 : 80));
+  const st = $("vstage"), cs = getComputedStyle(st), px = (parseFloat(cs.paddingLeft) || 0) + (parseFloat(cs.paddingRight) || 0), py = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);
+  const bw = Math.max(100, st.clientWidth - px - 12), bh = Math.max(100, st.clientHeight - py - 12 - (E.j.kind === "video" ? (E.far ? 30 : 50) : 0));
   const sc = Math.min(bw / E.w, bh / E.h), cw = Math.round(E.w * sc), ch = Math.round(E.h * sc), dpr = window.devicePixelRatio || 1;
   E.canvas.style.width = cw + "px"; E.canvas.style.height = ch + "px";
   const k = Math.min(1, cw * dpr / E.w), W = Math.max(1, Math.round(E.w * k)), H = Math.max(1, Math.round(E.h * k));
@@ -1282,7 +1619,11 @@ const edStage = () => {
   if (!E.gl) return h("div", { class: "vwait" }, h("p", { text: "Die Bearbeitung braucht eine Grafikkarte, die diese App gerade nicht bekommt." }));
   E.gl.ready.then(() => { if (E?.canvas === canvas) edDraw(); });
   const wrap = h("div", { class: "edwrap" }, canvas);
-  if (j.kind === "video") {
+  if (E.far) {
+    const img = new Image(); img.onload = () => { if (!E || E.canvas !== canvas) return; E.src = img; E.w = img.naturalWidth; E.h = img.naturalHeight; edFit(); };
+    img.onerror = () => { if (E?.canvas === canvas) { E.msg = "Die Vorschau ließ sich nicht laden. Schließ das Bild und öffne es noch einmal."; drawView(true); } }; img.src = pvOf(j);
+    if (j.kind === "video") wrap.append(h("p", { class: "hint edstill", text: "Standbild. Dein Look gilt für das ganze Video." }));
+  } else if (j.kind === "video") {
     const vid = h("video", { src: j.blob, loop: true, playsinline: true, preload: "auto" }); E.vid = vid;
     const play = h("button", { class: "btn sm edplay", text: "Pause" });
     const bar = h("input", { type: "range", min: "0", max: "1000", value: "0", "aria-label": "Stelle im Video" });
@@ -1323,17 +1664,17 @@ const edPanel = () => {
   const before = h("button", { class: "btn", text: "Vorher", title: "Gedrückt halten zeigt das Original" });
   const hold = on => { if (!E) return; E.before = on; before.classList.toggle("on", on); edDraw(); };
   before.onpointerdown = ev => { ev.preventDefault(); hold(true); }; before.onpointerup = before.onpointerleave = before.onpointercancel = () => { if (E?.before) hold(false); };
-  const saveBtn = h("button", { class: "btn go", text: E.busy ? "Abbrechen" : j.kind === "video" ? "Als neues Video sichern" : "Als neues Bild sichern" });
-  saveBtn.onclick = () => { if (E.busy) E.busy.cancel(); else edExport(); };
+  const saveBtn = h("button", { class: "btn go", text: E.far ? (E.busy ? "Wird gesichert …" : "Sichern") : E.busy ? "Abbrechen" : j.kind === "video" ? "Als neues Video sichern" : "Als neues Bild sichern", disabled: !!(E.far && E.busy) });
+  saveBtn.onclick = () => { if (E.far) { if (!E.busy) edSend(); } else if (E.busy) E.busy.cancel(); else edExport(); };
   const last = e.saved[e.saved.length - 1];
   const acts = h("div", { class: "edacts" }, saveBtn, prog, msg,
-    last ? h("button", { class: "btn", text: "Gesicherte Datei im Finder zeigen", onclick: ev => edReveal(last, ev.target) }) : null,
+    last && local ? h("button", { class: "btn", text: "Gesicherte Datei im Finder zeigen", onclick: ev => edReveal(last, ev.target) }) : null,
     h("div", { class: "edtrio" }, before,
       h("button", { class: "btn", text: "Zurücksetzen", disabled: !!E.busy, onclick: () => { e.v = {}; e.mono = false; edChanged(); drawView(true); } }),
       h("button", { class: "btn", text: "Fertig", disabled: !!E.busy, onclick: () => { stopEdit(); stageKey = ""; drawView(); } })));
   E.ui = { prog, msg, saveBtn };
   return [h("h2", { text: j.kind === "video" ? "Video bearbeiten" : "Bild bearbeiten" }), h("h1", { text: M(j.model)?.name || "Bearbeiten" }), acts, ...rows,
-    h("p", { class: "hint edfoot", text: "Doppelklick auf einen Regler setzt ihn zurück. Das Original bleibt unverändert." })];
+    h("p", { class: "hint edfoot", text: E.far ? "Du stellst den Look an der Vorschau ein. Die volle Auflösung rechnet Higgsi auf deinem Computer, das Original bleibt unverändert." : "Doppelklick auf einen Regler setzt ihn zurück. Das Original bleibt unverändert." })];
 };
 const edReveal = async (p, btn) => {
   try { if (PLATFORM === "darwin") await run("open", ["-R", p]); else await desk.shell.showItemInFolder(nat(p)); }
@@ -1343,8 +1684,8 @@ const edProgress = (p, text) => {
   if (!E?.busy) return; E.busy.p = p; E.msg = text;
   if (E.ui) { E.ui.prog.hidden = false; E.ui.prog.firstChild.style.width = Math.round(p * 100) + "%"; E.ui.msg.textContent = text; }
 };
-const edFreeName = async ext => {
-  const base = `${DIR}/${E.j.id}-bearbeitet`;
+const edFreeName = async (j, ext) => {
+  const base = `${DIR}/${j.id}-bearbeitet`;
   for (let n = 1; n < 999; n++) { const p = base + (n > 1 ? "-" + n : "") + "." + ext; if (!(await desk.fs.exists(p))) return p; }
   return base + "-" + Date.now() + "." + ext;
 };
@@ -1355,80 +1696,116 @@ const spawnP = (cmd, args, onErr) => {
     c.on("close", code => code === 0 ? res() : rej(new Error(err.trim().split("\n").pop() || "Abbruch mit Code " + code))); });
   return { done, kill: () => c.kill("SIGKILL").catch(() => {}) };
 };
-const edExport = async () => {
-  const j = E.j, e = E.e, mine = E;
-  const job = { p: 0, stop: false, procs: [], cancel() { this.stop = true; for (const k of this.procs) k.kill(); } };
-  E.busy = job; E.msg = ""; drawView(true);
+/* Rechnet die bearbeitete Fassung in voller Auflösung und schreibt sie als neue Datei. Gibt den Pfad zurück. */
+const edRender = async (j, e, job, prog) => {
   const cv = document.createElement("canvas");
   let gl = null, tmp = "", writes = [];
   try {
     if (j.kind === "image") {
-      edProgress(.2, "Wird gerechnet …");
-      const img = E.src; if (!img) throw new Error("Das Bild ist noch nicht geladen.");
-      gl = edMakeGL(cv, true); await gl.ready;
+      prog(.2, "Wird gerechnet …");
+      const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = () => rej(new Error("Das Bild ließ sich nicht laden.")); i.src = j.blob; });
+      gl = edMakeGL(cv, true); if (!gl) throw new Error("Die Bearbeitung braucht eine Grafikkarte, die diese App gerade nicht bekommt."); await gl.ready;
       if (Math.max(img.naturalWidth, img.naturalHeight) > gl.max) throw new Error("Das Bild ist zu groß für die Grafikkarte.");
       cv.width = img.naturalWidth; cv.height = img.naturalHeight; gl.draw(img, cv.width, cv.height, e, 0, false);
-      const out = await edFreeName("png");
-      edProgress(.7, "Wird gesichert …");
+      const out = await edFreeName(j, "png");
+      prog(.7, "Wird gesichert …");
       await desk.fs.writeFile(out, new Uint8Array(await (await blobOf(cv, "image/png")).arrayBuffer()));
-      e.saved.push(out);
-    } else {
-      const ff = await edBin("ffmpeg"), probe = E.probe || await edProbe(pathOf(j));
-      if (!ff || !probe) throw new Error("Zum Sichern von Videos fehlt das Programm ffmpeg auf dem Mac.");
-      const src = pathOf(j), total = Math.max(1, probe.n || Math.round(probe.dur * probe.fps));
-      tmp = `${DIR}/.bearbeiten-${Date.now()}`; await desk.fs.mkdir(tmp, { recursive: true });
-      const m709 = !probe.cs || probe.cs === "bt709" || probe.cs === "unknown", inR = probe.range === "pc" ? "pc" : "tv";
-      // Einzelbilder aus dem Original holen (Farben wie im Player)
-      const ex = spawnP(ff, ["-v", "error", "-nostdin", "-i", src, "-map", "0:v:0", "-fps_mode", "passthrough",
-        "-vf", `scale=in_color_matrix=${m709 ? "bt709" : "auto"}:in_range=${inR}:out_color_matrix=bt601:out_range=pc,format=yuvj444p`, "-q:v", "1", "-start_number", "0", tmp + "/in_%06d.jpg"]);
-      job.procs.push(ex);
-      let exDone = false, exErr = null; ex.done.then(() => { exDone = true; }, err => { exDone = true; exErr = err; });
-      gl = edMakeGL(cv, true); await gl.ready;
-      if (Math.max(probe.w, probe.h) > gl.max) throw new Error("Das Video ist zu groß für die Grafikkarte.");
-      cv.width = probe.w; cv.height = probe.h;
-      const name = i => tmp + "/in_" + String(i).padStart(6, "0") + ".jpg", oname = i => tmp + "/out_" + String(i).padStart(6, "0") + ".jpg";
-      const next = async i => {   // wartet, bis Bild i fertig ausgepackt ist
-        for (;;) {
-          if (job.stop) throw new Error("abgebrochen");
-          const ok = await desk.fs.exists(name(i + 1)).catch(() => false);
-          if (ok || exDone) { if (exErr) throw exErr; if (!(await desk.fs.exists(name(i)).catch(() => false))) return null; break; }
-          await new Promise(r => setTimeout(r, 40));
-        }
-        const bytes = await desk.fs.readFile(name(i));
-        return createImageBitmap(new Blob([bytes], { type: "image/jpeg" }));
-      };
-      let i = 0, bmpP = next(0);
-      for (;;) {
-        const bmp = await bmpP; if (!bmp) break;
-        bmpP = next(i + 1); bmpP.catch(() => {});
-        if (bmp.width !== cv.width || bmp.height !== cv.height) { cv.width = bmp.width; cv.height = bmp.height; }
-        gl.draw(bmp, bmp.width, bmp.height, e, i, false); bmp.close();
-        const blob = await blobOf(cv, "image/jpeg", .96), k = i;
-        writes.push(blob.arrayBuffer().then(b => desk.fs.writeFile(oname(k), new Uint8Array(b))).then(() => desk.fs.rm(name(k), { force: true })));
-        if (writes.length > 6) await writes.shift();
-        i++; edProgress(.03 + .82 * Math.min(1, i / total), `Wird gerechnet … ${Math.min(99, Math.round(i / total * 100))} %`);
-      }
-      await Promise.all(writes);
-      if (!i) throw new Error("Aus dem Video kamen keine Bilder.");
-      if (job.stop) throw new Error("abgebrochen");
-      edProgress(.88, "Video wird zusammengesetzt …");
-      const out = await edFreeName("mp4");
-      const enc = a => ["-v", "error", "-nostdin", "-y", "-framerate", probe.rate && edFps(probe.rate) ? probe.rate : String(probe.fps), "-start_number", "0", "-i", tmp + "/out_%06d.jpg", "-i", src,
-        "-map", "0:v:0", "-map", "1:a?", "-vf", "scale=in_color_matrix=bt601:in_range=pc:out_color_matrix=bt709:out_range=tv,format=yuv420p",
-        "-c:v", "libx264", "-preset", "medium", "-crf", "14", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
-        ...(a ? ["-c:a", "copy"] : ["-c:a", "aac", "-b:a", "256k"]), "-shortest", "-movflags", "+faststart", out];
-      try { const p = spawnP(ff, enc(true)); job.procs.push(p); await p.done; }
-      catch (err) { if (job.stop) throw err; const p = spawnP(ff, enc(false)); job.procs.push(p); await p.done; }
-      e.saved.push(out);
+      return out;
     }
-    if (E === mine) { E.busy = null; E.msg = "Gesichert. Galerie und Vorschau zeigen jetzt die bearbeitete Fassung."; }
-    save(); j.showOrig = false; await loadEdited(j); drawJob(j);
-  } catch (err) {
-    if (E === mine) { E.busy = null; E.msg = job.stop ? "Abgebrochen. Es wurde nichts gesichert." : "Sichern hat nicht geklappt: " + String(err?.message || err).slice(0, 200); }
+    const ff = await edBin("ffmpeg"), probe = (E?.j === j && E.probe) || await edProbe(pathOf(j));
+    if (!ff || !probe) throw new Error("Zum Sichern von Videos fehlt das Programm ffmpeg auf dem Mac.");
+    const src = pathOf(j), total = Math.max(1, probe.n || Math.round(probe.dur * probe.fps));
+    tmp = `${DIR}/.bearbeiten-${Date.now()}`; await desk.fs.mkdir(tmp, { recursive: true });
+    const m709 = !probe.cs || probe.cs === "bt709" || probe.cs === "unknown", inR = probe.range === "pc" ? "pc" : "tv";
+    // Einzelbilder aus dem Original holen (Farben wie im Player)
+    const ex = spawnP(ff, ["-v", "error", "-nostdin", "-i", src, "-map", "0:v:0", "-fps_mode", "passthrough",
+      "-vf", `scale=in_color_matrix=${m709 ? "bt709" : "auto"}:in_range=${inR}:out_color_matrix=bt601:out_range=pc,format=yuvj444p`, "-q:v", "1", "-start_number", "0", tmp + "/in_%06d.jpg"]);
+    job.procs.push(ex);
+    let exDone = false, exErr = null; ex.done.then(() => { exDone = true; }, err => { exDone = true; exErr = err; });
+    gl = edMakeGL(cv, true); if (!gl) throw new Error("Die Bearbeitung braucht eine Grafikkarte, die diese App gerade nicht bekommt."); await gl.ready;
+    if (Math.max(probe.w, probe.h) > gl.max) throw new Error("Das Video ist zu groß für die Grafikkarte.");
+    cv.width = probe.w; cv.height = probe.h;
+    const name = i => tmp + "/in_" + String(i).padStart(6, "0") + ".jpg", oname = i => tmp + "/out_" + String(i).padStart(6, "0") + ".jpg";
+    const next = async i => {   // wartet, bis Bild i fertig ausgepackt ist
+      for (;;) {
+        if (job.stop) throw new Error("abgebrochen");
+        const ok = await desk.fs.exists(name(i + 1)).catch(() => false);
+        if (ok || exDone) { if (exErr) throw exErr; if (!(await desk.fs.exists(name(i)).catch(() => false))) return null; break; }
+        await new Promise(r => setTimeout(r, 40));
+      }
+      const bytes = await desk.fs.readFile(name(i));
+      return createImageBitmap(new Blob([bytes], { type: "image/jpeg" }));
+    };
+    let i = 0, bmpP = next(0);
+    for (;;) {
+      const bmp = await bmpP; if (!bmp) break;
+      bmpP = next(i + 1); bmpP.catch(() => {});
+      if (bmp.width !== cv.width || bmp.height !== cv.height) { cv.width = bmp.width; cv.height = bmp.height; }
+      gl.draw(bmp, bmp.width, bmp.height, e, i, false); bmp.close();
+      const blob = await blobOf(cv, "image/jpeg", .96), k = i;
+      writes.push(blob.arrayBuffer().then(b => desk.fs.writeFile(oname(k), new Uint8Array(b))).then(() => desk.fs.rm(name(k), { force: true })));
+      if (writes.length > 6) await writes.shift();
+      i++; prog(.03 + .82 * Math.min(1, i / total), `Wird gerechnet … ${Math.min(99, Math.round(i / total * 100))} %`);
+    }
+    await Promise.all(writes);
+    if (!i) throw new Error("Aus dem Video kamen keine Bilder.");
+    if (job.stop) throw new Error("abgebrochen");
+    prog(.88, "Video wird zusammengesetzt …");
+    const out = await edFreeName(j, "mp4");
+    const enc = a => ["-v", "error", "-nostdin", "-y", "-framerate", probe.rate && edFps(probe.rate) ? probe.rate : String(probe.fps), "-start_number", "0", "-i", tmp + "/out_%06d.jpg", "-i", src,
+      "-map", "0:v:0", "-map", "1:a?", "-vf", "scale=in_color_matrix=bt601:in_range=pc:out_color_matrix=bt709:out_range=tv,format=yuv420p",
+      "-c:v", "libx264", "-preset", "medium", "-crf", "14", "-colorspace", "bt709", "-color_primaries", "bt709", "-color_trc", "bt709",
+      ...(a ? ["-c:a", "copy"] : ["-c:a", "aac", "-b:a", "256k"]), "-shortest", "-movflags", "+faststart", out];
+    try { const p = spawnP(ff, enc(true)); job.procs.push(p); await p.done; }
+    catch (err) { if (job.stop) throw err; const p = spawnP(ff, enc(false)); job.procs.push(p); await p.done; }
+    return out;
   } finally {
     await Promise.allSettled(writes);
     gl?.lose();
     if (tmp) desk.fs.rm(tmp, { recursive: true, force: true }).catch(() => {});
+  }
+};
+const edExport = async () => {
+  const j = E.j, e = E.e, mine = E;
+  const job = { p: 0, stop: false, procs: [], cancel() { this.stop = true; for (const k of this.procs) k.kill(); } };
+  E.busy = job; E.msg = ""; drawView(true);
+  try {
+    const out = await edRender(j, e, job, (p, t) => { if (E === mine) edProgress(p, t); });
+    e.saved.push(out);
+    if (E === mine) { E.busy = null; E.msg = "Gesichert. Galerie und Vorschau zeigen jetzt die bearbeitete Fassung."; }
+    save(); j.showOrig = false; await loadEdited(j); drawJob(j); edShare(j, null);
+  } catch (err) {
+    if (E === mine) { E.busy = null; E.msg = job.stop ? "Abgebrochen. Es wurde nichts gesichert." : "Sichern hat nicht geklappt: " + String(err?.message || err).slice(0, 200); }
+  } finally {
+    if (E === mine && edit) drawView(true);
+  }
+};
+/* Am Handy: Einstellungen sichern, bearbeitete Vorschau ablegen. Die volle Auflösung rechnet die installierte App auf dem Computer. */
+const edSend = async () => {
+  const j = E.j, e = E.e, mine = E;
+  if (edIdentity(e)) { E.msg = "Du hast noch nichts verändert. Zieh erst an einem Regler."; return drawView(true); }
+  E.busy = { p: .3, cancel() {} }; E.msg = "Wird gesichert …"; drawView(true);
+  let gl = null, a = "";
+  try {
+    if (pvAssets && E.src && E.w) {
+      try {
+        const cv = document.createElement("canvas"); gl = edMakeGL(cv, true); await gl.ready;
+        cv.width = E.w; cv.height = E.h; gl.draw(E.src, E.w, E.h, e, 0, false);
+        const r = await pvAssets.upload(await blobOf(cv, "image/jpeg", .9), { type: "image/jpeg" });
+        if (PVID.test(String(r?.id))) a = r.id;
+      } catch (err) {}
+    }
+    const old = ED[j.id]?.a, doc = { k: j.kind, v: { ...e.v }, mono: !!e.mono, at: Date.now(), state: "wait", a };
+    await pvDb.doc("bearbeitet/" + j.id).set(doc);
+    ED[j.id] = doc; j.showOrig = false;
+    if (a && typeof old === "string" && old !== a && PVID.test(old)) pvAssets.delete(old).catch(() => {});
+    if (E === mine) { E.busy = null; E.msg = "Gespeichert. Die volle Auflösung legt Higgsi an, sobald es auf deinem Computer offen ist."; }
+    save(); drawJob(j);
+  } catch (err) {
+    if (a) pvAssets?.delete(a).catch(() => {});
+    if (E === mine) { E.busy = null; E.msg = "Sichern hat nicht geklappt. Prüf deine Verbindung und versuch es noch einmal."; }
+  } finally {
+    gl?.lose();
     if (E === mine && edit) drawView(true);
   }
 };
@@ -1436,12 +1813,14 @@ const edExport = async () => {
 /* Große Vorschau */
 let view = null, stageKey = "";
 const openView = j => { if (edit && edit !== j) stopEdit(); view = j; stageKey = ""; $("view").hidden = false; if (local && !j.blob && j.url) loadMedia(j, true); drawView(); $("vclose").focus(); };
-const closeView = () => { stopEdit(); view = null; stageKey = ""; $("vstage").replaceChildren(); $("view").hidden = true; };
+const closeView = () => { stopEdit(); view = null; stageKey = ""; $("vstage").replaceChildren(); $("view").hidden = true; $("view").classList.remove("editing"); };
 const stepView = d => { if (!view) return; const i = S.jobs.indexOf(view), n = S.jobs[i + d]; if (n) openView(n); };
 const drawView = force => {
   const j = view; if (!j) return;
   const ed = edit === j && E;
-  const m = M(j.model), key = [j.id, j.blob || "", ed ? "" : shown(j) || "", j.status, !!j.loading, j.mediaErr || "", ed ? "edit" : ""].join("|");
+  $("view").classList.toggle("editing", !!ed);
+  const far = !local ? (edPvOf(j) || pvOf(j)) : "";
+  const m = M(j.model), key = [j.id, j.blob || "", ed ? "" : shown(j) || "", far, j.status, !!j.loading, j.mediaErr || "", ed ? "edit" : ""].join("|");
   if (ed) {
     const fresh = key !== stageKey;
     if (fresh) { stageKey = key; $("vstage").replaceChildren(edStage()); }
@@ -1454,26 +1833,32 @@ const drawView = force => {
     const st = $("vstage");
     if (j.blob && j.kind === "video") st.replaceChildren(h("video", { src: shown(j), controls: true, autoplay: true, loop: true, playsinline: true }));
     else if (j.blob) st.replaceChildren(h("img", { src: shown(j), alt: "" }));
+    else if (far) st.replaceChildren(h("div", { class: "pvwrap" }, h("img", { src: far, alt: "" }), j.kind === "video" ? h("p", { class: "hint", text: "Standbild. Das Video spielst du mit Öffnen ab." }) : null));
     else st.replaceChildren(h("div", { class: "vwait" }, j.status === "running" || j.loading ? h("div", { class: "pulse" }) : null,
-      h("p", { text: j.status === "running" ? "Wird noch erstellt" : j.status === "failed" ? "Fehlgeschlagen. " + (j.error || "") : j.loading ? "Wird geladen" : j.mediaErr || (local ? "Keine Vorschau vorhanden." : "Die Vorschau gibt es in der installierten App. Mit Öffnen siehst du das Ergebnis im Browser.") })));
+      h("p", { text: j.status === "running" ? "Wird noch erstellt" : j.status === "failed" ? "Fehlgeschlagen. " + (j.error || "") : j.loading ? "Wird geladen" : j.mediaErr || (local ? "Keine Vorschau vorhanden." : (NODESK ? "Für dieses Ergebnis gibt es hier noch kein Vorschaubild. Es erscheint, sobald Higgsi auf deinem Computer offen ist. Mit Öffnen siehst du es schon jetzt." : "Hier fehlt noch das Vorschaubild. Es erscheint, sobald Higgsi als App Zugriff auf deinen Mac hat. Mit Öffnen siehst du es schon jetzt.")) }),
+      !local && j.url && j.status === "done" ? h("a", { class: "btn go", href: j.url, target: "_blank", rel: "noopener", text: "Öffnen" }) : null));
   }
   const row = (k, v) => v ? h("div", { class: "vrow" }, h("span", { text: k }), h("b", { text: String(v) })) : null;
   const acts = h("div", { class: "vacts" });
   if (j.url) acts.append(h("a", { class: "btn go", href: j.url, target: "_blank", rel: "noopener", text: "Öffnen" }));
-  if (local && j.blob) acts.append(h("button", { class: "btn", text: "Bearbeiten", title: "Taste E", onclick: () => startEdit(j) }));
+  if (canEdit(j)) acts.append(h("button", { class: "btn", text: "Bearbeiten", title: "Taste E", onclick: () => startEdit(j) }));
+  const ex = !local ? ED[j.id] : null;
+  if (ex && edPvOf({ id: j.id })) acts.append(h("button", { class: "btn", text: j.showOrig ? "Bearbeitete Fassung zeigen" : "Original zeigen", onclick: () => { j.showOrig = !j.showOrig; drawJob(j); drawView(); } }));
+  const edNote = ex ? h("p", { class: "hint ednote" + (ex.state === "failed" ? " bad" : ""), text: ex.state === "done" ? "Bearbeitet. Die Fassung in voller Auflösung liegt auf deinem Computer im Ordner Bilder, Higgsi."
+    : ex.state === "failed" ? "Die Bearbeitung hat auf deinem Computer nicht geklappt: " + (ex.msg || "unbekannter Fehler") : "Bearbeitung gespeichert. Die volle Auflösung legt Higgsi an, sobald es auf deinem Computer offen ist." }) : null;
   if (local && j.eblob) acts.append(h("button", { class: "btn", text: j.showOrig ? "Bearbeitete Fassung zeigen" : "Original zeigen", onclick: () => { j.showOrig = !j.showOrig; drawJob(j); drawView(); } }),
     h("button", { class: "btn", text: "Bearbeitete Fassung im Finder zeigen", onclick: e => edReveal(j.epath, e.target) }));
   if (local && j.blob) acts.append(h("button", { class: "btn", text: "Im Finder zeigen", onclick: e => reveal(j, e.target) }));
   if (j.status === "failed") acts.append(h("button", { class: "btn", text: "Aus der Galerie entfernen", onclick: () => removeJob(j) }));
-  if (j.status === "done" && j.kind === "image") acts.append(h("button", { class: "btn", text: "Als Vorlage nehmen", onclick: () => { if (!S.refs.some(r => r.value === j.id)) S.refs.push({ value: j.id, label: "Ergebnis", thumb: j.blob || "", as: "start" }); closeView(); drawRefs(); estimate(); setTab("create"); } }));
+  if (j.status === "done" && j.kind === "image") acts.append(h("button", { class: "btn", text: "Als Vorlage nehmen", onclick: () => { if (!S.refs.some(r => r.value === j.id)) S.refs.push({ value: j.id, label: "Ergebnis", thumb: j.blob || pvOf(j) || "", as: "start" }); closeView(); drawRefs(); estimate(); setTab("create"); } }));
   if (j.prompt) acts.append(h("button", { class: "btn", text: "Beschreibung übernehmen", onclick: () => { S.prompt = j.prompt; $("prompt").value = j.prompt; save(); closeView(); setTab("create"); } }),
     h("button", { class: "btn", text: "Beschreibung kopieren", onclick: e => { navigator.clipboard.writeText(j.prompt).then(() => { e.target.textContent = "Kopiert"; }, () => {}); } }));
-  $("vside").replaceChildren(
+  $("vside").replaceChildren(...[
     h("h2", { text: j.kind === "video" ? "Video" : "Bild" }), h("h1", { text: m?.name || String(j.model || "") }),
     costOf(j) ? h("div", { class: "vcost" }, h("b", { text: costOf(j).replace(" Credits", "") }), h("span", { text: "Credits" })) : null,
     h("div", { class: "vrows" }, row("Format", j.set?.aspect_ratio), row("Auflösung", j.set?.resolution), row("Länge", j.set?.duration ? j.set.duration + " Sekunden" : ""), row("Qualität", j.set?.quality),
       row("Erstellt", j.at ? new Date(j.at).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "")),
-    j.prompt ? h("h2", { text: "Beschreibung" }) : null, j.prompt ? h("p", { class: "vprompt", text: j.prompt }) : null, acts);
+    j.prompt ? h("h2", { text: "Beschreibung" }) : null, j.prompt ? h("p", { class: "vprompt", text: j.prompt }) : null, edNote, acts].filter(Boolean));
   const i = S.jobs.indexOf(j); $("vprev").disabled = i <= 0; $("vnext").disabled = i < 0 || i >= S.jobs.length - 1;
 };
 $("vclose").onclick = closeView; $("vprev").onclick = () => stepView(-1); $("vnext").onclick = () => stepView(1);
@@ -1486,7 +1871,7 @@ document.addEventListener("keydown", e => {
     return;
   }
   if (e.key === "Escape") closeView(); else if (e.key === "ArrowLeft") stepView(-1); else if (e.key === "ArrowRight") stepView(1);
-  else if ((e.key === "e" || e.key === "E") && !e.metaKey && !e.ctrlKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && local && view.blob) { e.preventDefault(); startEdit(view); }
+  else if ((e.key === "e" || e.key === "E") && !e.metaKey && !e.ctrlKey && !e.altKey && !/^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && canEdit(view)) { e.preventDefault(); startEdit(view); }
 });
 const placeJobs = () => {
   S.jobs.sort((a, b) => (b.at || 0) - (a.at || 0));
@@ -1508,7 +1893,7 @@ const loadHistory = async () => {
       if (j.status !== "done") { j.status = status; j.url = firstUrl(g.results) || j.url; }
       drawJob(j);
     }
-    placeJobs(); save(); poll();
+    placeJobs(); save(); poll(); pvFill(); histDone = true; hwWork();
   } catch (e) { if (!helpMcp(e)) note(say(e), "Erneut versuchen", boot); }
   $("reload").disabled = false;
 };
@@ -1519,9 +1904,11 @@ const RULES = () => `Du bist der Assistent in "Higgsi", einer App zum Erstellen 
 Verfügbare Modelle (nur diese):
 ${MODELS.map(m => `- ${m.id} (${m.name}, ${m.kind === "image" ? "Bild" : "Video"}): Formate ${m.ar.join(", ")}; ${Object.entries(m.opts).map(([k, v]) => k + " " + v.join("/")).join("; ")}${m.dur ? `; Länge ${m.dur[0]} bis ${m.dur[1]} Sekunden` : ""}${m.audio ? "; Ton an/aus" : ""}`).join("\n")}
 Standard: Bilder mit gpt_image_2_6 in quality max und 2k. Videos mit seedance_2_5 in 480p, Hochformat 9:16, wenn nichts anderes gewünscht ist.
-Wenn der Nutzer etwas erstellen will: schreibe eine gute, konkrete Beschreibung (Prompt) und rufe propose_generation auf. Das zeigt dem Nutzer eine Karte mit Preis und Start-Knopf. Du selbst startest nie etwas und gibst keine Credits aus. Schlage dasselbe nicht zweimal vor. Soll nur der Editor befüllt werden, nutze fill_editor.
+Wenn der Nutzer etwas erstellen will: schreibe eine gute, konkrete Beschreibung (Prompt) und rufe propose_generation auf. Das zeigt dem Nutzer eine Karte mit Preis und Start-Knopf. Du selbst startest nie etwas und gibst keine Credits aus. Schlage dasselbe nicht zweimal vor, außer der Nutzer bittet ausdrücklich noch einmal darum. Soll nur der Editor befüllt werden, nutze fill_editor.
 Fragen zum Guthaben beantwortest du mit get_credits, Fragen zu bisherigen Ergebnissen mit list_recent.${people().length ? `
-Hinterlegte Personen mit Referenzfotos: ${people().map(x => x.name + (x.hinweis ? " (" + x.hinweis + ")" : "")).join("; ")}. Soll eine davon im Bild sein (sagt der Nutzer "ich" oder "mich", ist das ${people()[0].name}), gib ihren Namen in persons an. Die App hängt die Referenzfotos selbst an. Beschreibe das Aussehen dieser Personen nie.` : ""}${P?.wissen ? `
+Hinterlegte Personen mit Referenzfotos: ${people().map(x => x.name + (x.hinweis ? " (" + x.hinweis + ")" : "")).join("; ")}. Soll eine davon im Bild sein (sagt der Nutzer "ich" oder "mich", ist das ${people()[0].name}), gib ihren Namen in persons an. Die App hängt die Referenzfotos selbst an. Beschreibe das Aussehen dieser Personen nie.
+Diese Liste ist der aktuelle Stand und gilt immer. Steht weiter oben im Gespräch, es sei keine Person hinterlegt, ist das überholt: schlage jetzt ganz normal mit persons vor.` : `
+Aktuell ist keine Person mit Referenzfotos hinterlegt${auList().length ? " (" + auList().map(([, x]) => x.name).join(", ") + " ist angelegt, aber noch nicht fertig: das passiert, sobald Higgsi auf dem Computer des Nutzers offen ist)" : ""}. Will der Nutzer sich selbst oder eine bestimmte echte Person im Bild haben, schlage noch nichts vor, sondern sag ihm in ein bis zwei Sätzen, wie er die Person anlegt: in der Galerie unten im Editor auf "+ Person hinzufügen" ${NODESK ? "tippen" : "klicken"}, einen Namen eingeben und 1 bis 3 klare Fotos vom Gesicht wählen${NODESK ? ". Fertig angelegt ist sie, sobald Higgsi einmal auf seinem Computer offen war" : ""}. Danach soll er dich noch einmal fragen.`}${P?.wissen ? `
 Wissen über den Nutzer und seine festen Regeln, halte dich daran:
 ${String(P.wissen).slice(0, 12000)}` : ""}`;
 const TOOLS = () => [
@@ -1556,7 +1943,7 @@ const drawChat = () => {
         h("p", {}, "Kostet voraussichtlich ", h("b", { class: "cost", text: c.est != null ? fmt(c.est) + " Credits" : "unbekannt" })),
         c.state === "open" ? h("div", { class: "acts" },
           h("button", { class: "btn go sm", text: "Starten", onclick: async () => { const tell = t => { c.note = t; drawChat(); }; c.state = "busy"; c.err = ""; estNow = c.est; tell("Wird gestartet …");
-            try { const w = await withPeople(c.prompt, [], c.persons, tell); tell("Wird gestartet …"); const r = await submit(m, w.prompt, c.set, w.refs, false); c.state = r.choice ? "open" : "started"; } catch (err) { c.state = "open"; c.err = say(err); }
+            try { const w = await withPeople(c.prompt, [], c.persons, tell); tell("Wird gestartet …"); const r = await submit(m, w.prompt, c.set, w.refs, false); c.state = r.choice ? "open" : "started"; } catch (err) { c.state = "open"; c.err = sayGen(err, c.persons); }
             drawChat(); save(); if (c.state === "started") setTab("gallery"); } }),
           h("button", { class: "btn sm", text: "In den Editor", onclick: () => { fillEditor(m, c.prompt, c.set); setTab("create"); } }),
           h("button", { class: "btn sm", text: "Verwerfen", onclick: () => { c.state = "dropped"; drawChat(); } }))
@@ -1567,10 +1954,11 @@ const drawChat = () => {
 };
 const sendChat = async text => {
   if (!sample || ctl) return;
-  S.chat.push({ role: "user", content: text });
-  const turns = [{ role: "user", content: RULES() }, ...S.chat.filter(c => (c.role === "user" || c.role === "assistant") && c.content).slice(-16).map(c => ({ role: c.role, content: c.content }))];
-  const reply = { role: "assistant", content: "", pending: true }; S.chat.push(reply); drawChat();
   ctl = new AbortController(); $("cstop").hidden = false; $("csend").disabled = true;
+  S.chat.push({ role: "user", content: text });
+  const reply = { role: "assistant", content: "", pending: true }; S.chat.push(reply); drawChat();
+  await syWait(3000);   /* am Handy kurz auf Personen und Wissen vom Computer warten, damit Claude sie kennt */
+  const turns = [{ role: "user", content: RULES() }, ...S.chat.filter(c => c !== reply && (c.role === "user" || c.role === "assistant") && c.content).slice(-16).map(c => ({ role: c.role, content: c.content }))];
   const bubble = () => [...$("msgs").querySelectorAll(".msg.assistant")].pop();
   try {
     const opts = { cache: false, signal: ctl.signal, onText: ({ text }) => { reply.content = text; const b = bubble(); if (b) { b.textContent = text; $("msgs").scrollTop = $("msgs").scrollHeight; } } };
@@ -1609,7 +1997,7 @@ $("go").onclick = async () => {
     if (r.choice) r = await submit(m, w.prompt, S.set[m.id], w.refs, false);
     if (r.jobs) setTab("gallery");
   } catch (e) {
-    err.textContent = say(e) + (e?.code === "server_unavailable" || e?.code === "upstream_error" ? " Schau erst in der Galerie nach, ob der Auftrag trotzdem läuft, bevor du es wiederholst." : "");
+    err.textContent = sayGen(e, S.persons) + (e?.code === "server_unavailable" || e?.code === "upstream_error" ? " Schau erst in der Galerie nach, ob der Auftrag trotzdem läuft, bevor du es wiederholst." : "");
     err.hidden = false;
   }
   $("go").disabled = false; $("golabel").textContent = S.kind === "image" ? "Bild erstellen" : "Video erstellen";
@@ -1640,6 +2028,7 @@ const enableLocal = async () => {
   DIR = HOME.replace(/[\\/]$/, "") + "/Pictures/Higgsi"; local = true; if (!PLATFORM) PLATFORM = await desk.os.platform().catch(() => ""); await loadProfile();
   drawRefs(); for (const j of S.jobs) drawJob(j);
   for (const j of S.jobs.slice(0, 12)) loadMedia(j, false);
+  pvFill(); syRefresh(); syBeat(); hwWork();
   return true;
 };
 const boot = async () => {
@@ -1650,7 +2039,11 @@ const boot = async () => {
 const start = async () => {
   setTab("gallery");
   drawCompose(); for (const j of S.jobs) drawJob(j); placeJobs(); drawChat();
-  [mcp, sample, desk] = await Promise.all([use("mcp"), use("sample"), use("desktop")]);
+  [mcp, sample, desk, pvDb, pvAssets] = await Promise.all([use("mcp"), use("sample"), use("desktop"), use("db"), use("assets")]);
+  /* Die Claude-App am Handy liefert ein desktop-Objekt ohne Dateizugriff: Handy heißt kein Dateizugriff und Installieren nicht möglich */
+  { const ins = desk?.fs ? "inapp" : desk?.install ? await desk.install.state().catch(() => "unavailable") : "unavailable"; NODESK = !desk?.fs && ins !== "available" && ins !== "installed"; }
+  if (NODESK) { if (!pvDb) H.comp = "missing"; drawCompose(true); }
+  pvWatch(); hwWatch(); syInit();
   if (sample) { try { canTools = !!(await sample.limits()).tools; } catch (e) {} }
   else { $("cin").disabled = true; $("csend").disabled = true; }
   drawChat();
@@ -1665,6 +2058,8 @@ const start = async () => {
   await boot();
   if (keep && $("note").hidden) note(t, b, f);
   setInterval(() => { if (document.visibilityState === "visible" && mcp) refreshBalance(); }, 120000);
+  setInterval(() => { if (local && mcp && !$("reload").disabled) loadHistory(); }, 180000);
+  setInterval(syRefresh, 216e5);
 };
 start();
 }
